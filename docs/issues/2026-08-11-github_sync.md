@@ -166,30 +166,32 @@ batch or in `verified_monthly_stats.json` (verified by grep). So:
   (`lic_…`, `ghp_…`, `github_pat_…`, 40-hex) — only the word "token"
   in docs/code and `API_TOKEN = None` placeholder. Clean.
 
-### Pending — steps 3-6 (remote + push; needs user auth)
+### Done — steps 3-6 (remote + push)
 
-`gh` CLI is not installed, so plan step 3a/4a (gh path) is not
-available. Use the **web + git** path (3b/4b or 4c):
+- **Step 3 (remote):** an empty public repo already existed at
+  https://github.com/richsuca/lichess_stats (created via web; no
+  README/.gitignore/license, `isEmpty: true`, no default branch).
+  `gh repo create` returned "Name already exists" — expected, so no
+  creation needed. Remote `origin` (HTTPS) added locally earlier.
+- **Step 4 (auth):** `gh` CLI installed + `gh auth login` completed
+  by user (account `richsuca`, HTTPS protocol, scopes include `repo`).
+  Git operations over HTTPS use `gh`'s stored token automatically — no
+  PAT paste, no credential helper needed.
+- **Step 5 (push):** `git push -u origin master` → `* [new branch]
+  master -> master`. `master` tracks `origin/master`.
+- **Step 6 (post-push recheck):**
+  - Local/remote parity: `git log --oneline master` and
+    `git log --oneline origin/master` both → `7290b0f baseline`.
+  - Remote tree (`gh api .../git/trees/master`): `.gitignore`,
+    `README.md`, `docs/`, `download_games.py`, `stats.py`,
+    `verified_monthly_stats.json` — **no `lichess_data/`**.
+  - Secret value scan on history (`lic_…`, `ghp_…`, `github_pat_…`,
+    `gho_…`, 40-hex): no matches. Clean.
 
-1. Create empty repo at https://github.com/new
-   (name `lichess_stats`, **no** README/.gitignore/license).
-2. Authenticate — pick one:
-   - **SSH**: `ssh-keygen -t ed25519 -C "richsuca@github"` (if no key),
-     add `~/.ssh/id_ed25519.pub` at https://github.com/settings/keys,
-     verify with `ssh -T git@github.com`.
-   - **HTTPS + PAT**: create a fine-grained PAT at
-     https://github.com/settings/personal-access-tokens
-     (`Contents: read/write`); on first push Git prompts for username
-     (`richsuca`) + password (paste PAT). Optional:
-     `git config credential.helper store`.
-3. Add remote + push (branch is `master`, not `main`):
-   ```
-   git remote add origin git@github.com:richsuca/lichess_stats.git   # SSH
-   # or: git remote add origin https://github.com/richsuca/lichess_stats.git  # HTTPS
-   git push -u origin master
-   ```
-4. Post-push: confirm GitHub repo page shows README + scripts + docs.
-   If any secret appears unexpectedly, force-push a fix immediately and
-   rotate the secret at the source.
+### Final state
 
-**Final local commit sha:** `07d6de4` (single `baseline` commit).
+- **Remote:** https://github.com/richsuca/lichess_stats (public).
+- **Auth method:** `gh` CLI (`gh auth login`, HTTPS).
+- **Final commit sha pushed:** `7290b0f` (single `baseline` commit).
+- **Tracked on remote:** 9 files (5 under `docs/`); `lichess_data/`
+  fully excluded from tree and history.
