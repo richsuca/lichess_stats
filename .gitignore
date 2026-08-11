@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+
+lichess_data/
+
+output_md/
