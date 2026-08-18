@@ -95,5 +95,73 @@ and **not** parameter-specific (per issue #667; reproduced here for
 
 ## Result
 
-_To be filled in after the work is done and verified. Record commit
-sha(s) and any deviations from the plan above._
+Completed 2026-08-17.
+
+### Step 1 — re-check endpoint
+
+```
+$ curl -sS -o /dev/null -w "%{http_code}\n" -H "Accept: application/x-ndjson" \
+    "https://lichess.org/api/games/user/richsu?max=1"
+404
+```
+
+Still broken. Proceeded to step 2.
+
+### Step 2 — graceful 404 handling
+
+Added `_handle_404()` helper and wrapped the `for game in iterator:` loop
+in a `try/except berserk.exceptions.ResponseError`. On HTTP 404 the
+script now prints a clear message and exits 0.
+
+Verification (endpoint still down):
+```
+$ ./venv/bin/python download_games.py
+No state file yet; downloading ALL rated games for richsu...
+Lichess games endpoint returned 404 for user 'richsu'.
+This is a known upstream bug: https://github.com/lichess-org/api/issues/667
+No games fetched; state unchanged. stats.py still works on already-downloaded data.
+EXIT CODE: 0
+```
+
+`lichess_data/` directory left empty (no `fetch_state.json` created,
+no batch files written). State is untouched.
+
+### Step 3 — distinct handling for non-existent user
+
+Verified with a fake username:
+```
+$ USERNAME=test_nonexistent_user_xyz ./venv/bin/python -c "..."
+Error: user 'test_nonexistent_user_xyz' not found on Lichess.
+Check the USERNAME setting in download_games.py.
+EXIT CODE: 1
+```
+
+Distinct message (stderr, exit 1) vs. upstream-bug message (stdout,
+exit 0). No false "upstream broken" claim for a genuinely-missing user.
+
+Other `ResponseError`s (429, 5xx, etc.) are re-raised via `raise` after
+the 404 check — they still surface as tracebacks.
+
+### Step 4 — README updated
+
+Added upstream-dependency note to the `download_games.py` section of
+`README.md`, linking to lichess-org/api#667 and explaining the graceful
+degradation behaviour.
+
+Also added a module docstring to `download_games.py` referencing the
+tracking issue.
+
+### Step 5 — track upstream
+
+Pending. Re-test endpoint periodically. When #667 is fixed:
+- `curl` should return 200.
+- Re-run `./venv/bin/python download_games.py` — should fetch games
+  normally and update `fetch_state.json`.
+- Optionally revert the 404-swallow workaround if desired, or keep as
+  defensive code.
+
+### Files changed
+
+- `download_games.py` — added `sys` import, module docstring, `_handle_404()`,
+  try/except around iterator loop.
+- `README.md` — added upstream-dependency note with link to #667.

@@ -23,6 +23,12 @@ one timestamped batch per run.
 
 - Uses the [`berserk`](https://github.com/rhgrant10/berserk) Lichess API
   client.
+- **Upstream dependency:** the Lichess games-by-user endpoint has a known
+  regression ([lichess-org/api#667](https://github.com/lichess-org/api/issues/667),
+  opened 2026-08-02). When the endpoint returns 404 for all requests, the
+  script detects the situation and exits gracefully with an informational
+  message instead of dumping a traceback. State is left unchanged so the
+  next successful run resumes normally.
 - Targets the user `richsu` (edit `USERNAME` at the top of the file to
   use your own).
 - `API_TOKEN` is optional: leave it `None` to use an anonymous client,

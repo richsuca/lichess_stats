@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
+"""Incrementally download rated games from the Lichess API.
+
+Upstream dependency note: the games-by-user endpoint has a known regression
+tracked at https://github.com/lichess-org/api/issues/667 (opened 2026-08-02).
+When that endpoint returns 404 for all requests, this script detects the
+situation and exits gracefully instead of dumping a traceback.
+"""
 import json
 import os
+import sys
 from datetime import datetime, timezone
 
 import berserk
@@ -73,6 +81,32 @@ def make_client():
         return berserk.Client(session=berserk.TokenSession(API_TOKEN))
     return berserk.Client()
 
+def _handle_404(client: berserk.Client) -> None:
+    """Handle HTTP 404 from the games endpoint.
+
+    Distinguishes between the upstream Lichess bug (issue #667) and a
+    genuinely non-existent username, then exits cleanly.
+    """
+    try:
+        client.users.get_public_data(USERNAME)
+        # User exists — this is the upstream endpoint regression.
+        print(
+            f"Lichess games endpoint returned 404 for user '{USERNAME}'.\n"
+            f"This is a known upstream bug: https://github.com/lichess-org/api/issues/667\n"
+            f"No games fetched; state unchanged. stats.py still works on "
+            f"already-downloaded data."
+        )
+        sys.exit(0)
+    except berserk.exceptions.ResponseError:
+        # User doesn't exist — different problem.
+        print(
+            f"Error: user '{USERNAME}' not found on Lichess.\n"
+            f"Check the USERNAME setting in download_games.py.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def main():
     ensure_out_dir()
     state = load_state()
@@ -108,19 +142,24 @@ def main():
     newest_ms_seen = last_fetch_ms if last_fetch_ms is not None else 0
     newly_seen_ids = []
 
-    for game in iterator:
-        gid = game["id"]
-        if gid in seen_ids:
-            continue
+    try:
+        for game in iterator:
+            gid = game["id"]
+            if gid in seen_ids:
+                continue
 
-        rec = minimal_record(game, USERNAME)
-        batch.append(rec)
+            rec = minimal_record(game, USERNAME)
+            batch.append(rec)
 
-        seen_ids.add(gid)
-        newly_seen_ids.append(gid)
+            seen_ids.add(gid)
+            newly_seen_ids.append(gid)
 
-        if rec["createdAtMs"] > newest_ms_seen:
-            newest_ms_seen = rec["createdAtMs"]
+            if rec["createdAtMs"] > newest_ms_seen:
+                newest_ms_seen = rec["createdAtMs"]
+    except berserk.exceptions.ResponseError as e:
+        if e.status_code == 404:
+            _handle_404(client)
+        raise
 
     if not batch:
         print("No new games.")
