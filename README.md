@@ -73,11 +73,39 @@ A hand-verified snapshot of monthly stats (per perf, per month:
 `games`, `W`, `L`, `D`, `winPct`). Kept as a reference/checkpoint of
 what the output looked like at a known-good point.
 
+## Checks
+
+Run all code quality checks:
+
+```bash
+./check.sh
+```
+
+This runs:
+- **ruff** — linter + formatter (`ruff check .` and `ruff format --check .`)
+- **mypy** — static type checker (`mypy *.py`)
+- **typos** — spell checker for source and docs
+
+To auto-fix formatting issues:
+
+```bash
+./venv/bin/ruff format .
+```
+
+Dev dependencies (install into the venv):
+
+```bash
+./venv/bin/pip install ruff mypy
+```
+
+`typos` is installed separately — see <https://github.com/crate-ci/typos#install>.
+
 ## Layout
 
 ```
 download_games.py          # fetcher
 stats.py                   # monthly stats reporter
+check.sh                   # run all code quality checks
 lichess_data/              # game batches (games_*.json) + fetch_state.json (gitignored)
 verified_monthly_stats.json
 docs/                      # WORKFLOW.md, issues/

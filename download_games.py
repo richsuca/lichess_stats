@@ -6,6 +6,7 @@ tracked at https://github.com/lichess-org/api/issues/667 (opened 2026-08-02).
 When that endpoint returns 404 for all requests, this script detects the
 situation and exits gracefully instead of dumping a traceback.
 """
+
 import json
 import os
 import sys
@@ -25,8 +26,10 @@ PERF_TYPES = None  # e.g. ["blitz", "rapid"]
 # Fetch overlap to avoid boundary/ordering issues (5 minutes is usually plenty)
 OVERLAP_MS = 5 * 60 * 1000
 
+
 def ensure_out_dir():
     os.makedirs(OUT_DIR, exist_ok=True)
+
 
 def load_state():
     if not os.path.exists(STATE_PATH):
@@ -34,16 +37,19 @@ def load_state():
     with open(STATE_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def save_state(last_fetch_ms: int, seen_ids: list[str]):
     # Keep the seen-id set bounded (only need recent history for dedupe)
     seen_ids = seen_ids[-5000:]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump({"last_fetch_ms": last_fetch_ms, "seen_ids": seen_ids}, f)
 
+
 def dt_to_ms(dt: datetime) -> int:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return int(dt.timestamp() * 1000)
+
 
 def result_for_user(game: dict, username: str) -> str:
     winner = game.get("winner")  # 'white'/'black' or None for draw
@@ -58,6 +64,7 @@ def result_for_user(game: dict, username: str) -> str:
     if b_name.lower() == username.lower():
         return "W" if winner == "black" else "L"
     return "D"
+
 
 def minimal_record(game: dict, username: str) -> dict:
     created_ms = dt_to_ms(game["createdAt"])
@@ -80,6 +87,7 @@ def make_client():
     if API_TOKEN:
         return berserk.Client(session=berserk.TokenSession(API_TOKEN))
     return berserk.Client()
+
 
 def _handle_404(client: berserk.Client) -> None:
     """Handle HTTP 404 from the games endpoint.
@@ -119,7 +127,9 @@ def main():
     else:
         # Overlap window: re-fetch a bit, then dedupe by ID
         since_ms = max(0, int(last_fetch_ms) - OVERLAP_MS)
-        print(f"Incremental fetch since {since_ms} ms (includes overlap, will dedupe)...")
+        print(
+            f"Incremental fetch since {since_ms} ms (includes overlap, will dedupe)..."
+        )
 
     client = make_client()
 
@@ -154,8 +164,7 @@ def main():
             seen_ids.add(gid)
             newly_seen_ids.append(gid)
 
-            if rec["createdAtMs"] > newest_ms_seen:
-                newest_ms_seen = rec["createdAtMs"]
+            newest_ms_seen = max(newest_ms_seen, rec["createdAtMs"])
     except berserk.exceptions.ResponseError as e:
         if e.status_code == 404:
             _handle_404(client)
@@ -165,7 +174,7 @@ def main():
         print("No new games.")
         return
 
-    run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     out_path = os.path.join(OUT_DIR, f"games_{run_stamp}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(batch, f, indent=2)
@@ -175,6 +184,7 @@ def main():
 
     print(f"Wrote {len(batch)} new games to {out_path}")
     print(f"Updated state last_fetch_ms={int(newest_ms_seen)}")
+
 
 if __name__ == "__main__":
     main()

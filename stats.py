@@ -16,9 +16,11 @@ PERF_DISPLAY = {
     "ultraBullet": "UltraBullet",
 }
 
+
 def ms_to_yyyymm(ms: int) -> str:
     dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
     return dt.strftime("%Y-%m")
+
 
 def load_all_games(data_dir: str):
     """
@@ -38,15 +40,18 @@ def load_all_games(data_dir: str):
 
     return list(games_by_id.values()), paths
 
+
 def compute_monthly_stats(games):
     """
     Returns:
       stats[perf][yyyymm] = dict(games=N, W=w, L=l, D=d)
     """
-    stats = defaultdict(lambda: defaultdict(lambda: {"games": 0, "W": 0, "L": 0, "D": 0}))
+    stats = defaultdict(
+        lambda: defaultdict(lambda: {"games": 0, "W": 0, "L": 0, "D": 0})
+    )
 
     for g in games:
-        perf = (g.get("perf") or "unknown")
+        perf = g.get("perf") or "unknown"
         month = ms_to_yyyymm(int(g["createdAtMs"]))
         res = g.get("result", "D")
 
@@ -59,6 +64,7 @@ def compute_monthly_stats(games):
             bucket["D"] += 1
 
     return stats
+
 
 def format_section(perf_key: str, months_dict: dict) -> str:
     # Sort months ascending
@@ -77,6 +83,7 @@ def format_section(perf_key: str, months_dict: dict) -> str:
         lines.append(f"{m}: {total} games | W:{w} L:{l} D:{dr} | Win%: {win_pct:.1f}%")
 
     return "\n".join(lines)
+
 
 def main():
     games, paths = load_all_games(DATA_DIR)
@@ -110,6 +117,7 @@ def main():
 
     # Optional: quick totals
     # print(f"Loaded {len(games)} unique games from {len(paths)} files.")
+
 
 if __name__ == "__main__":
     main()
